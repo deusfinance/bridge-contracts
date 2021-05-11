@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-interface StakedToken {
+interface StandardToken {
     function balanceOf(address account) external view returns (uint256);
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
@@ -51,7 +51,7 @@ contract DeusBridge is Ownable{
     ) public {
         require(tokens[tokenId] != address(0), "!tokenId");
 
-        StakedToken token = StakedToken(tokens[tokenId]);
+        StandardToken token = StandardToken(tokens[tokenId]);
         token.transferFrom(address(msg.sender), address(this), amount);
 
         uint256 txId = ++lastTxId;
@@ -76,7 +76,7 @@ contract DeusBridge is Ownable{
         require(!claimedTxs[txId], "alreay claimed");
         require(tokens[tokenId] != address(0), "!tokenId");
 
-        StakedToken token = StakedToken(tokens[tokenId]);
+        StandardToken token = StandardToken(tokens[tokenId]);
 
         //TODO: any fees?
         token.transfer(user, amount);
