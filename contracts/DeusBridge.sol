@@ -30,9 +30,9 @@ contract DeusBridge is Ownable{
     uint256 lastTxId = 0;
 
     mapping(uint256 => TX) public txs;
-    mapping(address => uint256[]) userTxs;
+    mapping(address => uint256[]) public userTxs;
 
-    mapping(uint256 => bool) claimedTxs;
+    mapping(uint256 => bool) public claimedTxs;
 
     constructor(
         uint256 _network
