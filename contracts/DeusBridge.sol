@@ -92,11 +92,24 @@ contract DeusBridge is Ownable{
         }
     }
 
+    function getUserTxs(address user) public view returns(
+        uint256[] memory
+    ){
+        return userTxs[user];
+    }
+
     function ownerAddToken(
         uint256 tokenId, address tokenContract
     ) public onlyOwner{
         tokens[tokenId] = tokenContract;
     }
+
+    function ownerSetNetworkID(
+        uint256 _network
+    ) public onlyOwner{
+        network = _network;
+    }
+
 
     function emergencyWithdrawETH(uint256 amount, address addr) public onlyOwner{
         require(addr != address(0));
