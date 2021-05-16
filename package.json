@@ -4,7 +4,10 @@
   "description": "环境... solc 0.5.15",
   "main": "truffle-config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "compile": "truffle compile",
+    "build": "truffle build",
+    "deploy": "truffle deploy --network ropsten",
+    "test": "truffle test --network development"
   },
   "repository": {
     "type": "git",
