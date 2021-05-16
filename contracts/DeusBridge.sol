@@ -24,15 +24,16 @@ contract DeusBridge is Ownable{
         uint256 txId;
         uint256 tokenId;
         uint256 amount;
+        uint256 fromChain;
         uint256 toChain;
         address user;
     }
     uint256 lastTxId = 0;
 
     mapping(uint256 => TX) public txs;
-    mapping(address => uint256[]) public userTxs;
+    mapping(address => mapping(uint256 => uint256[])) public userTxs;
 
-    mapping(uint256 => bool) public claimedTxs;
+    mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
     constructor(
         uint256 _network
@@ -58,44 +59,45 @@ contract DeusBridge is Ownable{
         txs[lastTxId] = TX({
             txId: txId,
             tokenId: tokenId,
+            fromChain: network,
             toChain: toChain,
             amount: amount,
             user: user
         });
-        userTxs[user].push(txId);
+        userTxs[user][toChain].push(txId);
     }
 
     //TODO: add Muon signature
     function claim(address user,
-        uint256 amount, uint256 toChain,
+        uint256 amount, uint256 fromChain, uint256 toChain,
         uint256 tokenId, uint256 txId) public{
 
         require(toChain == network, "!network");
 
         //TODO: shall we support more than one chain in one contract?
-        require(!claimedTxs[txId], "alreay claimed");
+        require(!claimedTxs[fromChain][txId], "alreay claimed");
         require(tokens[tokenId] != address(0), "!tokenId");
 
         StandardToken token = StandardToken(tokens[tokenId]);
 
         //TODO: any fees?
         token.transfer(user, amount);
-        claimedTxs[txId] = true;
+        claimedTxs[fromChain][txId] = true;
     }
 
-    function pendingTxs(uint256[] calldata ids) public view returns(
+    function pendingTxs(uint256 fromChain, uint256[] calldata ids) public view returns(
         bool[] memory unclaimedIds
     ){
         unclaimedIds = new bool[](ids.length);
         for(uint256 i=0; i < ids.length; i++){
-            unclaimedIds[i] = claimedTxs[ids[i]];
+            unclaimedIds[i] = claimedTxs[fromChain][ids[i]];
         }
     }
 
-    function getUserTxs(address user) public view returns(
+    function getUserTxs(address user, uint256 toChain) public view returns(
         uint256[] memory
     ){
-        return userTxs[user];
+        return userTxs[user][toChain];
     }
 
     function ownerAddToken(
