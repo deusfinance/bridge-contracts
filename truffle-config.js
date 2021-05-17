@@ -113,6 +113,19 @@ module.exports = {
       timeoutBlocks: 200,
       gas: 5500000,
       skipDryRun: true
+    },
+
+    ftmtest: {
+      provider: () =>
+        new PrivateKeyProvider(
+          process.env.PK,
+          `https://rpc.testnet.fantom.network/`
+        ),
+      network_id: 4002,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      gas: 5500000,
+      skipDryRun: true
     }
 
     // Useful for private networks
@@ -148,6 +161,7 @@ module.exports = {
 
   api_keys: {
     bscscan: process.env.BSCSCAN_KEY,
-    etherscan: process.env.ETHERSCAN_KEY
+    etherscan: process.env.ETHERSCAN_KEY,
+    ftmscan: process.env.FTMSCAN_KEY
   }
 }
