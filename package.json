@@ -22,6 +22,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.1.0",
     "app-module-path": "^2.2.0",
+    "axios": "^0.21.1",
     "dotenv": "^8.2.0",
     "mocha": "^8.3.0",
     "object-assign": "^4.1.1",
@@ -29,6 +30,7 @@
     "original-require": "^1.0.1",
     "randombytes": "^2.1.0",
     "truffle": "^5.1.56",
+    "truffle-assertions": "^0.9.2",
     "truffle-plugin-verify": "^0.5.8",
     "truffle-privatekey-provider": "^1.5.0"
   }
