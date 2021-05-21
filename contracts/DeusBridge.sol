@@ -11,14 +11,17 @@ interface StandardToken {
     function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
+    function mint(address reveiver, uint256 amount) external returns (bool);
+    function burn(address sender, uint256 amount) external returns (bool);
 }
 
 contract DeusBridge is Ownable{
     using SafeMath for uint256;
     using ECDSA for bytes32;
 
-    // we assign a unique ID to each chain
+    // we assign a unique ID to each chain (default is CHAIN-ID)
     uint256 public network;
+    bool    public mintable;
     mapping (uint256 => address) public sideContracts;
     address public muonContract;
 
@@ -56,8 +59,9 @@ contract DeusBridge is Ownable{
 
     mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
 
-    constructor(uint256 _network, address _muon){
-        network = _network;
+    constructor(address _muon, bool _mintable){
+        network = getExecutingChainID();
+        mintable = _mintable;
         muonContract = _muon;
     }
 
@@ -70,11 +74,17 @@ contract DeusBridge is Ownable{
         uint256 amount, uint256 toChain,
         uint256 tokenId
     ) public returns (uint256){
+        require(sideContracts[toChain] != address(0), "!unknown toChain");
         require(toChain != network, "!selfDeposit");
         require(tokens[tokenId] != address(0), "!tokenId");
 
         StandardToken token = StandardToken(tokens[tokenId]);
-        token.transferFrom(address(msg.sender), address(this), amount);
+        if(mintable){
+            token.burn(address(msg.sender), amount);
+        }
+        else{
+            token.transferFrom(address(msg.sender), address(this), amount);
+        }
 
         uint256 txId = ++lastTxId;
         txs[txId] = TX({
@@ -113,9 +123,14 @@ contract DeusBridge is Ownable{
         require(tokens[tokenId] != address(0), "!tokenId");
 
         StandardToken token = StandardToken(tokens[tokenId]);
-
         //TODO: any fees?
-        token.transfer(user, amount);
+        if(mintable){
+            token.mint(user, amount);
+        }
+        else{ 
+            token.transfer(user, amount);
+        }
+
         claimedTxs[fromChain][txId] = true;
         emit Claim(user, amount, fromChain, tokenId, txId);
     }
@@ -157,6 +172,14 @@ contract DeusBridge is Ownable{
         tokens[tokenId] = tokenContract;
     }
 
+    function getExecutingChainID() public view returns (uint256) {
+        uint256 id;
+        assembly {
+            id := chainid()
+        }
+        return id;
+    }
+
     function ownerSetNetworkID(
         uint256 _network
     ) public onlyOwner{
@@ -167,6 +190,10 @@ contract DeusBridge is Ownable{
     function ownerSetSideContract(uint256 _network, address _addr) public onlyOwner{
         require (network != _network, '!current contract');
         sideContracts[_network] = _addr;
+    }
+
+    function ownerSetMintable(bool _mintable) public onlyOwner{
+        mintable = _mintable;
     }
 
     function emergencyWithdrawETH(uint256 amount, address addr) public onlyOwner{
