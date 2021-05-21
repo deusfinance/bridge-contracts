@@ -11,7 +11,6 @@ contract MuonV01 is Ownable {
     mapping(address => bool) public signers;
     
     function verify(bytes32 hash, bytes[] calldata sigs) public view returns (bool) {
-        require(sigs.length > 0, "sigs length should be > 0");
         uint i;
         address signer;
         for(i=0 ; i<sigs.length ; i++){
@@ -20,7 +19,7 @@ contract MuonV01 is Ownable {
             if(signers[signer] != true)
                 return false;
         }
-        return true;
+        return sigs.length > 0;
     }
 
     function ownerAddSigner(address _signer) public onlyOwner {
