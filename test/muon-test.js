@@ -1,6 +1,7 @@
 
 const Muon = artifacts.require("MuonV01");
 const ERT = artifacts.require('ERT');
+const DEAToken = artifacts.require('DEAToken');
 const SampleApp = artifacts.require("SampleApp");
 const DeusBridge = artifacts.require("DeusBridge");
 const truffleAssert = require('truffle-assertions');
@@ -19,7 +20,7 @@ MUON_NODE_3 = '0xe4f507b6D5492491f4B57f0f235B158C4C862fea'
 const ETH = 1, BSC = 2, FTM = 3, TOKEN_ID=1;
 
 contract("MuonV01", (accounts) => {
-	let muon, sampleApp, sampleToken;
+	let muon, sampleApp, deaToken;
 	let ethBridge, bscBridge, ftmBridge;
     before(async () => {
         muon = await Muon.deployed();
@@ -32,13 +33,25 @@ contract("MuonV01", (accounts) => {
         sampleApp = await SampleApp.new(muon.address)
 
         // deploy sample token
-        sampleToken = await ERT.new({from: accounts[0]});
-        await sampleToken.mint(accounts[0], web3.utils.toWei('25000'))
+        deaToken = await DEAToken.new({from: accounts[0]});
+        const MINTER_ROLE = await deaToken.MINTER_ROLE.call();
+        await deaToken.grantRole(MINTER_ROLE, accounts[0])
+        await deaToken.mint(accounts[1], web3.utils.toWei('25000'))
+        await deaToken.revokeRole(MINTER_ROLE, accounts[0])
 
         // deploy bridge of eth/bsc/fantom
-        ethBridge = await DeusBridge.new(ETH, muon.address, {from: accounts[0]});
-        bscBridge = await DeusBridge.new(BSC, muon.address, {from: accounts[0]});
-        ftmBridge = await DeusBridge.new(FTM, muon.address, {from: accounts[0]});
+        ethBridge = await DeusBridge.new(muon.address, false, {from: accounts[0]});
+        bscBridge = await DeusBridge.new(muon.address, true,  {from: accounts[0]});
+        ftmBridge = await DeusBridge.new(muon.address, true,  {from: accounts[0]});
+
+        await ethBridge.ownerSetMintable(true)
+        await bscBridge.ownerSetMintable(true)
+        await ftmBridge.ownerSetMintable(true)
+
+        //for test we set this network ID
+        await ethBridge.ownerSetNetworkID(ETH);
+        await bscBridge.ownerSetNetworkID(BSC);
+        await ftmBridge.ownerSetNetworkID(FTM);
 
         // set side contracts
         await ethBridge.ownerSetSideContract(BSC, bscBridge.address);
@@ -48,15 +61,10 @@ contract("MuonV01", (accounts) => {
         await ftmBridge.ownerSetSideContract(ETH, ethBridge.address);
         await ftmBridge.ownerSetSideContract(BSC, bscBridge.address);
 
-        // transfer token to bridges to be claimed
-        await sampleToken.transfer(ethBridge.address, web3.utils.toWei('1000'))
-        await sampleToken.transfer(bscBridge.address, web3.utils.toWei('1000'))
-        await sampleToken.transfer(ftmBridge.address, web3.utils.toWei('1000'))
-
         // add token to bridges
-        await ethBridge.ownerAddToken(TOKEN_ID, sampleToken.address)
-        await bscBridge.ownerAddToken(TOKEN_ID, sampleToken.address)
-        await ftmBridge.ownerAddToken(TOKEN_ID, sampleToken.address)
+        await ethBridge.ownerAddToken(TOKEN_ID, deaToken.address)
+        await bscBridge.ownerAddToken(TOKEN_ID, deaToken.address)
+        await ftmBridge.ownerAddToken(TOKEN_ID, deaToken.address)
 
         console.log({
         	ethBridge: ethBridge.address,
@@ -116,15 +124,31 @@ contract("MuonV01", (accounts) => {
     })
 
     describe('Bridge test', async () => {
-    	it("uiuiuiu", async () => {
-    		let depositAmount = web3.utils.toWei('500');
 
-    		await sampleToken.approve(ethBridge.address, depositAmount);
-	    	let txDeposit = await ethBridge.deposit(depositAmount, BSC, TOKEN_ID, {from: accounts[0]});
+    	it("deposit/claim", async () => {
+            let depositAmount = web3.utils.toWei('500');
+            const MINTER_ROLE = await deaToken.MINTER_ROLE.call();
+            const BURNER_ROLE = await deaToken.BURNER_ROLE.call();
+
+    		await deaToken.approve(ethBridge.address, depositAmount, {from: accounts[1]});
+
+            let txDeposit 
+            try{
+                txDeposit = await ethBridge.deposit(depositAmount, BSC, TOKEN_ID, {from: accounts[1]});
+                assert(false, `Burn occured but it not permitted`)
+            }
+            catch(error){
+                const missingRole = error.message.search('is missing role') >= 0;
+                assert(missingRole, `App should throw the error "is missing role of burn"`)
+            }
+
+            await deaToken.grantRole(BURNER_ROLE, ethBridge.address)
+            await deaToken.grantRole(MINTER_ROLE, bscBridge.address)
+            txDeposit = await ethBridge.deposit(depositAmount, BSC, TOKEN_ID, {from: accounts[1]});
 	    	
 	    	truffleAssert.eventEmitted(txDeposit, 'Deposit', (ev) => {
 	            return (
-	            	ev.user === accounts[0]
+	            	ev.user === accounts[1]
 	            	&& ev.toChain.eq(web3.utils.toBN(BSC))
 	            	&& !!ev.txId
 	            );
@@ -133,12 +157,13 @@ contract("MuonV01", (accounts) => {
 	    	let txId = txDeposit.logs.find(log => (log.event === 'Deposit')).args.txId.toString();
 	        let nodesSigResults = await muonNode.ethCallContract(ethBridge.address, 'getTx', [txId], ethBridge.abi);
 	        let sigs = nodesSigResults.result.signatures.map(({signature}) => signature)
+            console.log({sigs});
 
-	    	let txClaim = await bscBridge.claim(accounts[0], depositAmount, ETH, BSC, TOKEN_ID, txId, sigs, {from: accounts[0]});
+	    	let txClaim = await bscBridge.claim(accounts[1], depositAmount, ETH, BSC, TOKEN_ID, txId, sigs, {from: accounts[1]});
 
             truffleAssert.eventEmitted(txClaim, 'Claim', (ev) => {
                 return (
-                    ev.user == accounts[0] 
+                    ev.user == accounts[1] 
                     && ev.amount.toString() == depositAmount.toString()
                     && ev.fromChain.eq(web3.utils.toBN(ETH))
                 );

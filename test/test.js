@@ -1,4 +1,5 @@
 const ERT = artifacts.require('ERT');
+const MuonV01 = artifacts.require('MuonV01');
 const DeusBridge = artifacts.require("DeusBridge");
 const truffleAssert = require('truffle-assertions');
 let muonNode = require('../test-utils/muon-node')
@@ -9,11 +10,18 @@ const addr0 = "0x0000000000000000000000000000000000000000";
 const bytes0 = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
 contract("DeusBridge", (accounts) => {
-    let deusBridge;
-    const NETWORK_ID = 180;
+    let deusBridge, sideBridge, muon, token;
+    const NETWORK_ID = 180, TOKEN_ID = 1;
 
     before(async () => {
         deusBridge = await DeusBridge.deployed();
+        muon = await MuonV01.new();
+        sideBridge = await DeusBridge.new(muon.address, false)
+
+        await deusBridge.ownerSetNetworkID(NETWORK_ID)
+        await sideBridge.ownerSetNetworkID(NETWORK_ID + 1);
+
+        await deusBridge.ownerSetSideContract(NETWORK_ID + 1, sideBridge.address)
     });
 
     describe("Testing networkID.", async () => {
@@ -30,8 +38,7 @@ contract("DeusBridge", (accounts) => {
     describe("Testing tokenID", async () => {
         it("should not able to deposit unknown tokenID", async () => {
             try{
-                await deusBridge.deposit(12, 2, 55, {from: accounts[0]});
-                // assert.equal(networkID, 180, "The networkID should be 1.");
+                await deusBridge.deposit(12, NETWORK_ID + 1, 55, {from: accounts[0]});
             }
             catch (error){
                 const unknownToken = error.message.search('!tokenId') >= 0;
@@ -42,7 +49,7 @@ contract("DeusBridge", (accounts) => {
 
         it("Non owner address not allowed to add token", async () => {
             try{
-                await deusBridge.ownerAddToken(1, addr0, {from: accounts[1]});
+                await deusBridge.ownerAddToken(TOKEN_ID, addr0, {from: accounts[1]});
             }
             catch (error){
                 const unknownOwner = error.message.search('caller is not the owner') >= 0;
@@ -54,7 +61,7 @@ contract("DeusBridge", (accounts) => {
 
     describe("Testing deposit/claim", async () => {
         
-        const tokenID = 1, toChain = NETWORK_ID;
+        const tokenID = 1, toChain = NETWORK_ID + 1;
         let token;
         
         before("", async () => {
