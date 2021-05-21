@@ -21,6 +21,7 @@
   "homepage": "https://github.com/yfii/yvault#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.1.0",
+    "@truffle/hdwallet-provider": "^1.4.0",
     "app-module-path": "^2.2.0",
     "axios": "^0.21.1",
     "dotenv": "^8.2.0",

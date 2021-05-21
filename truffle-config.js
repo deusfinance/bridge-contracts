@@ -25,7 +25,7 @@
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
 require('dotenv').config()
-let PrivateKeyProvider = require('truffle-privatekey-provider')
+const HDWalletProvider = require("@truffle/hdwallet-provider");
 console.log('https://ropsten.infura.io/v3/' + process.env.INFURA_KEY)
 module.exports = {
   /**
@@ -66,7 +66,7 @@ module.exports = {
     ropsten: {
       //provider: () => new HDWalletProvider(mnemonic, `https://ropsten.infura.io/v3/YOUR-PROJECT-ID`),
       provider: () =>
-        new PrivateKeyProvider(
+        new HDWalletProvider(
           process.env.PK,
           'https://ropsten.infura.io/v3/' + process.env.INFURA_KEY
         ),
@@ -79,7 +79,7 @@ module.exports = {
 
     rinkeby: {
       provider: () =>
-        new PrivateKeyProvider(
+        new HDWalletProvider(
           process.env.PK,
           'https://rinkeby.infura.io/v3/' + process.env.INFURA_KEY
         ),
@@ -92,7 +92,7 @@ module.exports = {
 
     bsctest: {
       provider: () =>
-        new PrivateKeyProvider(
+        new HDWalletProvider(
           process.env.PK,
           `https://data-seed-prebsc-1-s2.binance.org:8545`
         ),
@@ -104,7 +104,7 @@ module.exports = {
 
     bsc: {
       provider: () =>
-        new PrivateKeyProvider(
+        new HDWalletProvider(
           process.env.PK,
           `https://bsc-dataseed1.binance.org`
         ),
@@ -117,7 +117,7 @@ module.exports = {
 
     ftmtest: {
       provider: () =>
-        new PrivateKeyProvider(
+        new HDWalletProvider(
           process.env.PK,
           `https://rpc.testnet.fantom.network/`
         ),
