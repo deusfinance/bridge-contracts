@@ -22,7 +22,7 @@ contract SampleApp {
         MuonV01 m = MuonV01(muon);
         bytes[] memory sigList = new bytes[](1);
         sigList[0] = sig;
-        bool isValid = m.verify(hash, sigList);
+        bool isValid = m.verify("", hash, sigList);
         require(isValid, "signature not valid");
 
         emit Action(requestId, timestamp, price);

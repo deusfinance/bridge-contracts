@@ -104,7 +104,7 @@ contract DeusBridge is Ownable{
     //TODO: add Muon signature
     function claim(address user,
         uint256 amount, uint256 fromChain, uint256 toChain,
-        uint256 tokenId, uint256 txId, bytes _reqId, bytes[] calldata sigs) public{
+        uint256 tokenId, uint256 txId, bytes calldata _reqId, bytes[] calldata sigs) public{
 
         require(sideContracts[fromChain] != address(0), 'side contract not exist');
         require(toChain == network, "!network");
