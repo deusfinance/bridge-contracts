@@ -7,10 +7,12 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract MuonV01 is Ownable {
     using ECDSA for bytes32;
+    
+    event Transaction(bytes reqId);
 
     mapping(address => bool) public signers;
     
-    function verify(bytes32 hash, bytes[] calldata sigs) public view returns (bool) {
+    function verify(bytes _reqId, bytes32 hash, bytes[] calldata sigs) public view returns (bool) {
         uint i;
         address signer;
         for(i=0 ; i<sigs.length ; i++){
@@ -19,7 +21,13 @@ contract MuonV01 is Ownable {
             if(signers[signer] != true)
                 return false;
         }
-        return sigs.length > 0;
+        if(sigs.length > 0){
+            emit Transaction(_reqId);
+            return true;
+        }
+        else{
+            return false;
+        }
     }
 
     function ownerAddSigner(address _signer) public onlyOwner {
