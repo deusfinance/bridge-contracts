@@ -1,5 +1,4 @@
 var bridge = artifacts.require('./DeusBridge.sol')
-var muon = artifacts.require('./MuonV01.sol')
 var deaToken = artifacts.require('./DEAToken.sol')
 
 function parseArgv(){
@@ -18,11 +17,13 @@ module.exports = function (deployer) {
 
 		let params = parseArgv()
 		let mintable = params['mintable'] || 'false'
+		if(!params['muonAddress']){
+			throw {message: "muonAddress required."}
+		}
 
 		mintable = mintable === 'true' || mintable === true || mintable == 1;
 
-		let deployedMuon = await deployer.deploy(muon);
-		let deployedBridge = await deployer.deploy(bridge, deployedMuon.address, mintable)
+		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}

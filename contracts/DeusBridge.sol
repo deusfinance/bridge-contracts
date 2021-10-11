@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./MuonV01.sol";
+import "./IMuonV02.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -104,19 +104,16 @@ contract DeusBridge is Ownable{
     //TODO: add Muon signature
     function claim(address user,
         uint256 amount, uint256 fromChain, uint256 toChain,
-        uint256 tokenId, uint256 txId, bytes calldata _reqId, bytes[] calldata sigs) public{
+        uint256 tokenId, uint256 txId, bytes calldata _reqId, SchnorrSign[] calldata sigs) public{
 
         require(sideContracts[fromChain] != address(0), 'side contract not exist');
         require(toChain == network, "!network");
-        require(sigs.length > 1, "!sigs");
+        require(sigs.length > 0, "!sigs");
 
         bytes32 hash = keccak256(abi.encodePacked(sideContracts[fromChain], user, amount, fromChain, toChain, tokenId, txId));
-        hash = hash.toEthSignedMessageHash();
 
-        MuonV01 muon = MuonV01(muonContract);
-        bool isVerified = muon.verify(_reqId, hash, sigs);
-
-        require(isVerified, "sigs not verified");
+        IMuonV02 muon = IMuonV02(muonContract);
+        require(muon.verify(_reqId, uint256(hash), sigs), "!verified");
 
         //TODO: shall we support more than one chain in one contract?
         require(!claimedTxs[fromChain][txId], "alreay claimed");
