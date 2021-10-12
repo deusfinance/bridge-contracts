@@ -18,6 +18,7 @@ interface StandardToken {
 contract DeusBridge is Ownable{
     using SafeMath for uint256;
     using ECDSA for bytes32;
+    uint8 ETH_APP_ID = 2;
 
     // we assign a unique ID to each chain (default is CHAIN-ID)
     uint256 public network;
@@ -110,7 +111,12 @@ contract DeusBridge is Ownable{
         require(toChain == network, "!network");
         require(sigs.length > 0, "!sigs");
 
-        bytes32 hash = keccak256(abi.encodePacked(sideContracts[fromChain], user, amount, fromChain, toChain, tokenId, txId));
+        bytes32 hash = keccak256(
+            abi.encodePacked(
+                abi.encodePacked(sideContracts[fromChain], user, amount, fromChain),
+                abi.encodePacked(toChain, tokenId, txId, ETH_APP_ID)
+            )
+        );
 
         IMuonV02 muon = IMuonV02(muonContract);
         require(muon.verify(_reqId, uint256(hash), sigs), "!verified");
