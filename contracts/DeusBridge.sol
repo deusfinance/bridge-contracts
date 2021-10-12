@@ -113,8 +113,8 @@ contract DeusBridge is Ownable{
 
         bytes32 hash = keccak256(
             abi.encodePacked(
-                abi.encodePacked(sideContracts[fromChain], user, amount, fromChain),
-                abi.encodePacked(toChain, tokenId, txId, ETH_APP_ID)
+                abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
+                abi.encodePacked(fromChain, toChain, user, ETH_APP_ID)
             )
         );
 
