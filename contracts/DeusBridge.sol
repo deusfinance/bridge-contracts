@@ -1,210 +1,217 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.9;
 
 import "./IMuonV02.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 interface StandardToken {
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function mint(address reveiver, uint256 amount) external returns (bool);
-    function burn(address sender, uint256 amount) external returns (bool);
+	function balanceOf(address account) external view returns (uint256);
+	function transfer(address recipient, uint256 amount) external returns (bool);
+	function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+	function approve(address spender, uint256 amount) external returns (bool);
+	function mint(address reveiver, uint256 amount) external returns (bool);
+	function burn(address sender, uint256 amount) external returns (bool);
 }
 
-contract DeusBridge is Ownable{
-    using SafeMath for uint256;
-    using ECDSA for bytes32;
-    uint8 ETH_APP_ID = 2;
+contract DeusBridge is Ownable {
+	using ECDSA for bytes32;
 
-    // we assign a unique ID to each chain (default is CHAIN-ID)
-    uint256 public network;
-    bool    public mintable;
-    mapping (uint256 => address) public sideContracts;
-    address public muonContract;
+	struct TX{
+		uint256 txId;
+		uint256 tokenId;
+		uint256 amount;
+		uint256 fromChain;
+		uint256 toChain;
+		address user;
+	}
 
-    event Deposit(
-        uint256 txId,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 indexed toChain,
-        address indexed user
-    );
 
-    event Claim(
-        address indexed user,
-        uint256 amount, 
-        uint256 indexed fromChain, 
-        uint256 tokenId, 
-        uint256 txId
-    );
+	uint256 public lastTxId = 0;
+	uint256 public network;
+	address public muonContract;
+	bool    public mintable;
+	uint8   public ETH_APP_ID = 2;
+	// we assign a unique ID to each chain (default is CHAIN-ID)
+	mapping (uint256 => address) public sideContracts;
+	// tokenId => tokenContractAddress
+	mapping(uint256 => address)  public tokens;
+	mapping(uint256 => TX)       public txs;
+	mapping(address => mapping(uint256 => uint256[])) public userTxs;
+	mapping(uint256 => mapping(uint256 => bool))      public claimedTxs;
 
-    // tokenId => tokenContractAddress
-    mapping(uint256 => address) public tokens;
+	event Deposit(
+		address indexed user,
+		uint256 tokenId,
+		uint256 amount,
+		uint256 indexed toChain,
+		uint256 txId
+	);
 
-    struct TX{
-        uint256 txId;
-        uint256 tokenId;
-        uint256 amount;
-        uint256 fromChain;
-        uint256 toChain;
-        address user;
-    }
-    uint256 lastTxId = 0;
+	event Claim(
+		address indexed user,
+		uint256 tokenId, 
+		uint256 amount, 
+		uint256 indexed fromChain, 
+		uint256 txId
+	);
 
-    mapping(uint256 => TX) public txs;
-    mapping(address => mapping(uint256 => uint256[])) public userTxs;
+	constructor(address _muon, bool _mintable) {
+		network = getExecutingChainID();
+		mintable = _mintable;
+		muonContract = _muon;
+	}
 
-    mapping(uint256 => mapping(uint256 => bool)) public claimedTxs;
+	function deposit(
+		uint256 amount, 
+		uint256 toChain,
+		uint256 tokenId
+	) external returns (uint256) {
+		return depositFor(msg.sender, amount, toChain, tokenId);
+	}
 
-    constructor(address _muon, bool _mintable){
-        network = getExecutingChainID();
-        mintable = _mintable;
-        muonContract = _muon;
-    }
+	function depositFor(
+		address user,
+		uint256 amount,
+		uint256 toChain,
+		uint256 tokenId
+	) public returns (uint256 txId) {
+		require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
+		require(toChain != network, "Bridge: selfDeposit");
+		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-    function deposit(uint256 amount, uint256 toChain,
-        uint256 tokenId) public returns (uint256){
-        return depositFor(msg.sender, amount, toChain, tokenId);
-    }
+		StandardToken token = StandardToken(tokens[tokenId]);
+		if (mintable) {
+			token.burn(msg.sender, amount);
+		} else {
+			token.transferFrom(msg.sender, address(this), amount);
+		}
 
-    function depositFor(address user,
-        uint256 amount, uint256 toChain,
-        uint256 tokenId
-    ) public returns (uint256){
-        require(sideContracts[toChain] != address(0), "!unknown toChain");
-        require(toChain != network, "!selfDeposit");
-        require(tokens[tokenId] != address(0), "!tokenId");
+		txId = ++lastTxId;
+		txs[txId] = TX({
+			txId: txId,
+			tokenId: tokenId,
+			fromChain: network,
+			toChain: toChain,
+			amount: amount,
+			user: user
+		});
+		userTxs[user][toChain].push(txId);
 
-        StandardToken token = StandardToken(tokens[tokenId]);
-        if(mintable){
-            token.burn(address(msg.sender), amount);
-        }
-        else{
-            token.transferFrom(address(msg.sender), address(this), amount);
-        }
+		emit Deposit(user, tokenId, amount, toChain, txId);
+	}
 
-        uint256 txId = ++lastTxId;
-        txs[txId] = TX({
-            txId: txId,
-            tokenId: tokenId,
-            fromChain: network,
-            toChain: toChain,
-            amount: amount,
-            user: user
-        });
-        userTxs[user][toChain].push(txId);
-        emit Deposit(txId, tokenId, amount, toChain, user);
+	function claim(
+		address user,
+		uint256 amount,
+		uint256 fromChain,
+		uint256 toChain,
+		uint256 tokenId,
+		uint256 txId,
+		bytes calldata _reqId,
+		SchnorrSign[] calldata sigs
+	) public {
+		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
+		require(toChain == network, "Bridge: toChain should equal network");
+		require(sigs.length > 0, "Bridge: sigs is empty");
 
-        return txId;
-    }
+		bytes32 hash = keccak256(
+			abi.encodePacked(
+				abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
+				abi.encodePacked(fromChain, toChain, user, ETH_APP_ID)
+			)
+		);
 
-    //TODO: add Muon signature
-    function claim(address user,
-        uint256 amount, uint256 fromChain, uint256 toChain,
-        uint256 tokenId, uint256 txId, bytes calldata _reqId, SchnorrSign[] calldata sigs) public{
+		IMuonV02 muon = IMuonV02(muonContract);
+		// NOTE: check casting hash to uint
+		require(muon.verify(_reqId, uint256(hash), sigs), "Bridge: not verified");
 
-        require(sideContracts[fromChain] != address(0), 'side contract not exist');
-        require(toChain == network, "!network");
-        require(sigs.length > 0, "!sigs");
+		require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
+		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-        bytes32 hash = keccak256(
-            abi.encodePacked(
-                abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
-                abi.encodePacked(fromChain, toChain, user, ETH_APP_ID)
-            )
-        );
+		StandardToken token = StandardToken(tokens[tokenId]);
+		if (mintable) {
+			token.mint(user, amount);
+		} else { 
+			token.transfer(user, amount);
+		}
 
-        IMuonV02 muon = IMuonV02(muonContract);
-        require(muon.verify(_reqId, uint256(hash), sigs), "!verified");
+		claimedTxs[fromChain][txId] = true;
+		emit Claim(user, tokenId, amount, fromChain, txId);
+	}
 
-        //TODO: shall we support more than one chain in one contract?
-        require(!claimedTxs[fromChain][txId], "alreay claimed");
-        require(tokens[tokenId] != address(0), "!tokenId");
+	function pendingTxs(
+		uint256 fromChain, 
+		uint256[] calldata ids
+	) public view returns (bool[] memory unclaimedIds) {
+		unclaimedIds = new bool[](ids.length);
+		for(uint256 i=0; i < ids.length; i++){
+			unclaimedIds[i] = claimedTxs[fromChain][ids[i]];
+		}
+	}
 
-        StandardToken token = StandardToken(tokens[tokenId]);
-        //TODO: any fees?
-        if(mintable){
-            token.mint(user, amount);
-        }
-        else{ 
-            token.transfer(user, amount);
-        }
+	function getUserTxs(
+		address user, 
+		uint256 toChain
+	) public view returns (uint256[] memory) {
+		return userTxs[user][toChain];
+	}
 
-        claimedTxs[fromChain][txId] = true;
-        emit Claim(user, amount, fromChain, tokenId, txId);
-    }
+	// NOTE: ask from reza
+	function getTx(uint256 _txId) public view returns(
+		uint256 txId,
+		uint256 tokenId,
+		uint256 amount,
+		uint256 fromChain,
+		uint256 toChain,
+		address user
+	){
+		txId = txs[_txId].txId;
+		tokenId = txs[_txId].tokenId;
+		amount = txs[_txId].amount;
+		fromChain = txs[_txId].fromChain;
+		toChain = txs[_txId].toChain;
+		user = txs[_txId].user;
+	}
 
-    function pendingTxs(uint256 fromChain, uint256[] calldata ids) public view returns(
-        bool[] memory unclaimedIds
-    ){
-        unclaimedIds = new bool[](ids.length);
-        for(uint256 i=0; i < ids.length; i++){
-            unclaimedIds[i] = claimedTxs[fromChain][ids[i]];
-        }
-    }
+	function ownerAddToken(
+		uint256 tokenId, 
+		address tokenAddress
+	) public onlyOwner {
+		tokens[tokenId] = tokenAddress;
+	}
 
-    function getUserTxs(address user, uint256 toChain) public view returns(
-        uint256[] memory
-    ){
-        return userTxs[user][toChain];
-    }
+	function getExecutingChainID() public view returns (uint256) {
+		uint256 id;
+		assembly {
+			id := chainid()
+		}
+		return id;
+	}
 
-    function getTx(uint256 _txId) public view returns(
-        uint256 txId,
-        uint256 tokenId,
-        uint256 amount,
-        uint256 fromChain,
-        uint256 toChain,
-        address user
-    ){
-        txId = txs[_txId].txId;
-        tokenId = txs[_txId].tokenId;
-        amount = txs[_txId].amount;
-        fromChain = txs[_txId].fromChain;
-        toChain = txs[_txId].toChain;
-        user = txs[_txId].user;
-    }
+	// NOTE: double check it
+	function ownerSetNetworkID(
+		uint256 _network
+	) public onlyOwner {
+		network = _network;
+		delete sideContracts[network];
+	}
 
-    function ownerAddToken(
-        uint256 tokenId, address tokenContract
-    ) public onlyOwner{
-        tokens[tokenId] = tokenContract;
-    }
+	function ownerSetSideContract(uint256 _network, address _addr) public onlyOwner {
+		require (network != _network, 'Bridge: current network');
+		sideContracts[_network] = _addr;
+	}
 
-    function getExecutingChainID() public view returns (uint256) {
-        uint256 id;
-        assembly {
-            id := chainid()
-        }
-        return id;
-    }
+	function ownerSetMintable(bool _mintable) public onlyOwner {
+		mintable = _mintable;
+	}
 
-    function ownerSetNetworkID(
-        uint256 _network
-    ) public onlyOwner{
-        network = _network;
-        delete sideContracts[network];
-    }
+	function emergencyWithdrawETH(uint256 amount, address addr) external onlyOwner {
+		require(addr != address(0));
+		payable(addr).transfer(amount);
+	}
 
-    function ownerSetSideContract(uint256 _network, address _addr) public onlyOwner{
-        require (network != _network, '!current contract');
-        sideContracts[_network] = _addr;
-    }
-
-    function ownerSetMintable(bool _mintable) public onlyOwner{
-        mintable = _mintable;
-    }
-
-    function emergencyWithdrawETH(uint256 amount, address addr) public onlyOwner{
-        require(addr != address(0));
-        payable(addr).transfer(amount);
-    }
-
-    function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) public onlyOwner {
-        StandardToken(_tokenAddr).transfer(_to, _amount);
-    }
+	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
+		StandardToken(_tokenAddr).transfer(_to, _amount);
+	}
 }
