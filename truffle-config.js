@@ -24,9 +24,10 @@
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
 
-require('dotenv').config()
+const path = require('path');
+const envPath = path.join(__dirname, '.env');
+require('dotenv').config({ path: envPath })
 const HDWalletProvider = require("@truffle/hdwallet-provider");
-console.log('https://ropsten.infura.io/v3/' + process.env.INFURA_KEY)
 module.exports = {
   /**
    * Networks define how you connect to your ethereum client and let you set the
@@ -83,11 +84,12 @@ module.exports = {
           process.env.PK,
           'https://rinkeby.infura.io/v3/' + process.env.INFURA_KEY
         ),
-      network_id: 4, // Ropsten's id
-      gas: 5500000, // Ropsten has a lower block limit than mainnet
-      confirmations: 2, // # of confs to wait between deployments. (default: 0)
-      timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true // Skip dry run before migrations? (default: false for public nets )
+      network_id: 4,
+      gas: 8000000,
+      gasPrice: 2000000000,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      skipDryRun: true
     },
 
     bsctest: {
@@ -97,6 +99,8 @@ module.exports = {
           `https://data-seed-prebsc-1-s2.binance.org:8545`
         ),
       network_id: 97,
+      gas: 8000000,
+      gasPrice: 20000000000,
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true
@@ -154,6 +158,18 @@ module.exports = {
         }
         //  evmVersion: "byzantium"
       }
+    },
+    solc: {
+      version: '0.8.9', // Fetch exact version from solc-bin (default: truffle's version)
+      // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
+      settings: {
+        // See the solidity docs for advice about optimization and evmVersion
+        optimizer: {
+          enabled: true,
+          runs: 10000
+        }
+        //  evmVersion: "byzantium"
+      }
     }
   },
 
@@ -161,7 +177,7 @@ module.exports = {
 
   api_keys: {
     bscscan: process.env.BSCSCAN_KEY,
-    etherscan: process.env.ETHERSCAN_KEY,
+    etherscan: process.env.ETHERSCAN_API_KEY,
     ftmscan: process.env.FTMSCAN_KEY
   }
 }

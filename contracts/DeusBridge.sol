@@ -5,13 +5,13 @@ import "./IMuonV02.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
-interface StandardToken {
-	function balanceOf(address account) external view returns (uint256);
-	function transfer(address recipient, uint256 amount) external returns (bool);
-	function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-	function approve(address spender, uint256 amount) external returns (bool);
-	function mint(address reveiver, uint256 amount) external returns (bool);
-	function burn(address sender, uint256 amount) external returns (bool);
+interface IERC20 {
+	function transfer(address recipient, uint256 amount) external;
+	function transferFrom(address sender, address recipient, uint256 amount) external;
+	function mint(address reveiver, uint256 amount) external;
+	function burn(address sender, uint256 amount) external;
+	function pool_burn_from(address b_address, uint256 b_amount) external;
+	function pool_mint(address m_address, uint256 m_amount) external;
 }
 
 contract DeusBridge is Ownable {
@@ -80,9 +80,9 @@ contract DeusBridge is Ownable {
 		require(toChain != network, "Bridge: selfDeposit");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-		StandardToken token = StandardToken(tokens[tokenId]);
+		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
-			token.burn(msg.sender, amount);
+			token.pool_burn_from(msg.sender, amount);
 		} else {
 			token.transferFrom(msg.sender, address(this), amount);
 		}
@@ -129,9 +129,9 @@ contract DeusBridge is Ownable {
 		require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-		StandardToken token = StandardToken(tokens[tokenId]);
+		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
-			token.mint(user, amount);
+			token.pool_mint(user, amount);
 		} else { 
 			token.transfer(user, amount);
 		}
@@ -212,6 +212,6 @@ contract DeusBridge is Ownable {
 	}
 
 	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
-		StandardToken(_tokenAddr).transfer(_to, _amount);
+		IERC20(_tokenAddr).transfer(_to, _amount);
 	}
 }
