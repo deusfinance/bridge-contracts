@@ -123,19 +123,20 @@ contract DeusBridge is Ownable {
 		uint256 tokenId,
 		uint256 txId,
 		uint256 timestamp,
+		uint256 muonTimestamp,
 		bytes calldata _reqId,
 		SchnorrSign[] calldata sigs
 	) public {
 		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
 		require(toChain == network, "Bridge: toChain should equal network");
 		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
-		require(block.timestamp - timestamp >= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
+		require(muonTimestamp - timestamp >= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
 
 		{
 			bytes32 hash = keccak256(
 			abi.encodePacked(
 				abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
-				abi.encodePacked(fromChain, toChain, user, ETH_APP_ID, timestamp)
+				abi.encodePacked(fromChain, toChain, user, timestamp, ETH_APP_ID, muonTimestamp)
 				)
 			);
 
