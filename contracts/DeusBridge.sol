@@ -14,8 +14,8 @@ pragma solidity ^0.8.9;
 
 // Primary Author(s)
 // Sadegh: https://github.com/sadeghte
-// Vahid: https://github.com/vahid-dev
 // Reza: https://github.com/bakhshandeh
+// Vahid: https://github.com/vahid-dev
 // Mahdi: https://github.com/Mahdi-HF
 
 import "./IMuonV02.sol";
@@ -25,8 +25,6 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 interface IERC20 {
 	function transfer(address recipient, uint256 amount) external;
 	function transferFrom(address sender, address recipient, uint256 amount) external;
-	// function mint(address reveiver, uint256 amount) external;
-	// function burn(address sender, uint256 amount) external;
 	function pool_burn_from(address b_address, uint256 b_amount) external;
 	function pool_mint(address m_address, uint256 m_amount) external;
 }
@@ -161,7 +159,13 @@ contract DeusBridge is Ownable {
 	}
 
 
+
 	/* ========== VIEWS ========== */
+
+	// TODO: add pool feature to handle buyback and recollateralize on DEI minter pool
+	function collatDollarBalance(uint256 collat_usd_price) public view returns (uint256) {
+		return 0;
+	}
 
 	function pendingTxs(
 		uint256 fromChain, 
