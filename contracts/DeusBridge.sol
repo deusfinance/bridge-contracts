@@ -1,6 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 
+// =================================================================================================================
+//  _|_|_|    _|_|_|_|  _|    _|    _|_|_|      _|_|_|_|  _|                                                       |
+//  _|    _|  _|        _|    _|  _|            _|            _|_|_|      _|_|_|  _|_|_|      _|_|_|    _|_|       |
+//  _|    _|  _|_|_|    _|    _|    _|_|        _|_|_|    _|  _|    _|  _|    _|  _|    _|  _|        _|_|_|_|     |
+//  _|    _|  _|        _|    _|        _|      _|        _|  _|    _|  _|    _|  _|    _|  _|        _|           |
+//  _|_|_|    _|_|_|_|    _|_|    _|_|_|        _|        _|  _|    _|    _|_|_|  _|    _|    _|_|_|    _|_|_|     |
+// =================================================================================================================
+// ======================= DEUS Bridge ======================
+// ==========================================================
+// DEUS Finance: https://github.com/DeusFinance
+
+// Primary Author(s)
+// Sadegh: https://github.com/sadeghte
+// Vahid: https://github.com/vahid-dev
+// Reza: https://github.com/bakhshandeh
+// Mahdi: https://github.com/Mahdi-HF
+
 import "./IMuonV02.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -8,8 +25,8 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 interface IERC20 {
 	function transfer(address recipient, uint256 amount) external;
 	function transferFrom(address sender, address recipient, uint256 amount) external;
-	function mint(address reveiver, uint256 amount) external;
-	function burn(address sender, uint256 amount) external;
+	// function mint(address reveiver, uint256 amount) external;
+	// function burn(address sender, uint256 amount) external;
 	function pool_burn_from(address b_address, uint256 b_amount) external;
 	function pool_mint(address m_address, uint256 m_amount) external;
 }
@@ -17,18 +34,22 @@ interface IERC20 {
 contract DeusBridge is Ownable {
 	using ECDSA for bytes32;
 
-	struct TX{
+	/* ========== STATE VARIABLES ========== */
+	struct TX {
 		uint256 txId;
 		uint256 tokenId;
 		uint256 amount;
 		uint256 fromChain;
 		uint256 toChain;
 		address user;
+		uint256 timestamp;
 	}
-
 
 	uint256 public lastTxId = 0;
 	uint256 public network;
+	uint256 public minReqSigs;
+	uint256 public fee;
+	uint256 public scale = 1e6;
 	address public muonContract;
 	bool    public mintable;
 	uint8   public ETH_APP_ID = 2;
@@ -39,28 +60,22 @@ contract DeusBridge is Ownable {
 	mapping(uint256 => TX)       public txs;
 	mapping(address => mapping(uint256 => uint256[])) public userTxs;
 	mapping(uint256 => mapping(uint256 => bool))      public claimedTxs;
+	// chainId => confirmationTime on sourceChain
+	mapping(uint256 => uint256) 					  public confirmationTimes;
 
-	event Deposit(
-		address indexed user,
-		uint256 tokenId,
-		uint256 amount,
-		uint256 indexed toChain,
-		uint256 txId
-	);
 
-	event Claim(
-		address indexed user,
-		uint256 tokenId, 
-		uint256 amount, 
-		uint256 indexed fromChain, 
-		uint256 txId
-	);
+	/* ========== CONSTRUCTOR ========== */
 
-	constructor(address _muon, bool _mintable) {
+	constructor(address _muon, bool _mintable, uint256 _fee, uint256 _minReqSigs) {
 		network = getExecutingChainID();
 		mintable = _mintable;
 		muonContract = _muon;
+		minReqSigs = _minReqSigs;
+		fee = _fee;
 	}
+
+
+	/* ========== PUBLIC FUNCTIONS ========== */
 
 	function deposit(
 		uint256 amount, 
@@ -94,7 +109,8 @@ contract DeusBridge is Ownable {
 			fromChain: network,
 			toChain: toChain,
 			amount: amount,
-			user: user
+			user: user,
+			timestamp: block.timestamp
 		});
 		userTxs[user][toChain].push(txId);
 
@@ -108,27 +124,29 @@ contract DeusBridge is Ownable {
 		uint256 toChain,
 		uint256 tokenId,
 		uint256 txId,
+		uint256 timestamp,
 		bytes calldata _reqId,
 		SchnorrSign[] calldata sigs
 	) public {
 		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
 		require(toChain == network, "Bridge: toChain should equal network");
-		require(sigs.length > 0, "Bridge: sigs is empty");
+		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
+		require(block.timestamp - timestamp >= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
 
 		bytes32 hash = keccak256(
 			abi.encodePacked(
 				abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
-				abi.encodePacked(fromChain, toChain, user, ETH_APP_ID)
+				abi.encodePacked(fromChain, toChain, user, ETH_APP_ID, timestamp)
 			)
 		);
 
 		IMuonV02 muon = IMuonV02(muonContract);
-		// NOTE: check casting hash to uint
 		require(muon.verify(_reqId, uint256(hash), sigs), "Bridge: not verified");
 
 		require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
+		amount -= amount * fee / scale;
 		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
 			token.pool_mint(user, amount);
@@ -139,6 +157,9 @@ contract DeusBridge is Ownable {
 		claimedTxs[fromChain][txId] = true;
 		emit Claim(user, tokenId, amount, fromChain, txId);
 	}
+
+
+	/* ========== VIEWS ========== */
 
 	function pendingTxs(
 		uint256 fromChain, 
@@ -157,14 +178,14 @@ contract DeusBridge is Ownable {
 		return userTxs[user][toChain];
 	}
 
-	// NOTE: ask from reza
 	function getTx(uint256 _txId) public view returns(
 		uint256 txId,
 		uint256 tokenId,
 		uint256 amount,
 		uint256 fromChain,
 		uint256 toChain,
-		address user
+		address user,
+		uint256 timestamp
 	){
 		txId = txs[_txId].txId;
 		tokenId = txs[_txId].tokenId;
@@ -172,13 +193,7 @@ contract DeusBridge is Ownable {
 		fromChain = txs[_txId].fromChain;
 		toChain = txs[_txId].toChain;
 		user = txs[_txId].user;
-	}
-
-	function ownerAddToken(
-		uint256 tokenId, 
-		address tokenAddress
-	) public onlyOwner {
-		tokens[tokenId] = tokenAddress;
+		timestamp = txs[_txId].timestamp;
 	}
 
 	function getExecutingChainID() public view returns (uint256) {
@@ -189,20 +204,35 @@ contract DeusBridge is Ownable {
 		return id;
 	}
 
-	// NOTE: double check it
-	function ownerSetNetworkID(
-		uint256 _network
-	) public onlyOwner {
+	/* ========== RESTRICTED FUNCTIONS ========== */
+
+	function addToken(uint256 tokenId, address tokenAddress) external onlyOwner {
+		tokens[tokenId] = tokenAddress;
+	}
+
+	function addConfirmationTime(uint256 chainID, uint256 confirmationTime) external onlyOwner {
+		confirmationTimes[chainID] = confirmationTime;
+	}
+
+	function setNetworkID(uint256 _network) external onlyOwner {
 		network = _network;
 		delete sideContracts[network];
 	}
 
-	function ownerSetSideContract(uint256 _network, address _addr) public onlyOwner {
+	function setFee(uint256 _fee) external onlyOwner {
+		fee = _fee;
+	}
+
+	function setMinReqSigs(uint256 _minReqSigs) external onlyOwner {
+		minReqSigs = _minReqSigs;
+	}
+
+	function setSideContract(uint256 _network, address _addr) external onlyOwner {
 		require (network != _network, 'Bridge: current network');
 		sideContracts[_network] = _addr;
 	}
 
-	function ownerSetMintable(bool _mintable) public onlyOwner {
+	function setMintable(bool _mintable) external onlyOwner {
 		mintable = _mintable;
 	}
 
@@ -214,4 +244,22 @@ contract DeusBridge is Ownable {
 	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
 		IERC20(_tokenAddr).transfer(_to, _amount);
 	}
+
+
+	/* ========== EVENTS ========== */
+	event Deposit(
+		address indexed user,
+		uint256 tokenId,
+		uint256 amount,
+		uint256 indexed toChain,
+		uint256 txId
+	);
+
+	event Claim(
+		address indexed user,
+		uint256 tokenId, 
+		uint256 amount, 
+		uint256 indexed fromChain, 
+		uint256 txId
+	);
 }
