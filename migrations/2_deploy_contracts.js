@@ -16,14 +16,17 @@ module.exports = function (deployer) {
 	deployer.then(async () => {
 
 		let params = parseArgv()
-		let mintable = params['mintable'] || 'false'
+
+		let mintable = params['mintable'] || 'true'
+		mintable = mintable === 'true' || mintable === true || mintable == 1;
+		let minReqSigs = 1
+		let fee = 0
+
 		if(!params['muonAddress']){
 			throw {message: "muonAddress required."}
 		}
 
-		mintable = mintable === 'true' || mintable === true || mintable == 1;
-
-		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable)
+		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}

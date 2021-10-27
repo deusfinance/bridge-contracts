@@ -86,7 +86,7 @@ module.exports = {
         ),
       network_id: 4,
       gas: 8000000,
-      gasPrice: 2000000000,
+      gasPrice: 60000000000, // 60 gwei
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true

@@ -66,7 +66,7 @@ contract DeusBridge is Ownable {
 
 	/* ========== CONSTRUCTOR ========== */
 
-	constructor(address _muon, bool _mintable, uint256 _fee, uint256 _minReqSigs) {
+	constructor(address _muon, bool _mintable, uint256 _minReqSigs, uint256 _fee) {
 		network = getExecutingChainID();
 		mintable = _mintable;
 		muonContract = _muon;
@@ -133,15 +133,17 @@ contract DeusBridge is Ownable {
 		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
 		require(block.timestamp - timestamp >= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
 
-		bytes32 hash = keccak256(
+		{
+			bytes32 hash = keccak256(
 			abi.encodePacked(
 				abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
 				abi.encodePacked(fromChain, toChain, user, ETH_APP_ID, timestamp)
-			)
-		);
+				)
+			);
 
-		IMuonV02 muon = IMuonV02(muonContract);
-		require(muon.verify(_reqId, uint256(hash), sigs), "Bridge: not verified");
+			IMuonV02 muon = IMuonV02(muonContract);
+			require(muon.verify(_reqId, uint256(hash), sigs), "Bridge: not verified");
+		}
 
 		require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
