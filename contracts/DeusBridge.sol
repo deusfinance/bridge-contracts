@@ -40,7 +40,7 @@ contract DeusBridge is Ownable {
 		uint256 fromChain;
 		uint256 toChain;
 		address user;
-		uint256 timestamp;
+		uint256 txBlockNo;
 	}
 
 	uint256 public lastTxId = 0;
@@ -100,6 +100,8 @@ contract DeusBridge is Ownable {
 			token.transferFrom(msg.sender, address(this), amount);
 		}
 
+		if (fee > 0) amount -= amount * fee / scale;
+
 		txId = ++lastTxId;
 		txs[txId] = TX({
 			txId: txId,
@@ -108,7 +110,7 @@ contract DeusBridge is Ownable {
 			toChain: toChain,
 			amount: amount,
 			user: user,
-			timestamp: block.timestamp
+			txBlockNo: block.number
 		});
 		userTxs[user][toChain].push(txId);
 
@@ -121,22 +123,22 @@ contract DeusBridge is Ownable {
 		uint256 fromChain,
 		uint256 toChain,
 		uint256 tokenId,
+		uint256 currentBlockNo,
+		uint256 txBlockNo,
 		uint256 txId,
-		uint256 timestamp,
-		uint256 muonTimestamp,
 		bytes calldata _reqId,
 		SchnorrSign[] calldata sigs
 	) public {
 		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
 		require(toChain == network, "Bridge: toChain should equal network");
 		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
-		require(muonTimestamp - timestamp >= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
+		require(currentBlockNo -  txBlockNo>= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
 
 		{
 			bytes32 hash = keccak256(
 			abi.encodePacked(
 				abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
-				abi.encodePacked(fromChain, toChain, user, timestamp, ETH_APP_ID, muonTimestamp)
+				abi.encodePacked(fromChain, toChain, user, txBlockNo, currentBlockNo, ETH_APP_ID)
 				)
 			);
 
@@ -147,7 +149,6 @@ contract DeusBridge is Ownable {
 		require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
 
-		amount -= amount * fee / scale;
 		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
 			token.pool_mint(user, amount);
@@ -192,7 +193,8 @@ contract DeusBridge is Ownable {
 		uint256 fromChain,
 		uint256 toChain,
 		address user,
-		uint256 timestamp
+		uint256 txBlockNo,
+		uint256 currentBlockNo
 	){
 		txId = txs[_txId].txId;
 		tokenId = txs[_txId].tokenId;
@@ -200,7 +202,8 @@ contract DeusBridge is Ownable {
 		fromChain = txs[_txId].fromChain;
 		toChain = txs[_txId].toChain;
 		user = txs[_txId].user;
-		timestamp = txs[_txId].timestamp;
+		txBlockNo = txs[_txId].txBlockNo;
+		currentBlockNo = block.number;
 	}
 
 	function getExecutingChainID() public view returns (uint256) {
