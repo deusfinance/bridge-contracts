@@ -85,16 +85,18 @@ contract DeusBridge is Ownable {
 	function deposit(
 		uint256 amount, 
 		uint256 toChain,
-		uint256 tokenId
+		uint256 tokenId,
+		uint256 referralCode
 	) external returns (uint256) {
-		return depositFor(msg.sender, amount, toChain, tokenId);
+		return depositFor(msg.sender, amount, toChain, tokenId, referralCode);
 	}
 
 	function depositFor(
 		address user,
 		uint256 amount,
 		uint256 toChain,
-		uint256 tokenId
+		uint256 tokenId,
+		uint256 referralCode
 	) public returns (uint256 txId) {
 		require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
 		require(toChain != network, "Bridge: selfDeposit");
@@ -103,10 +105,12 @@ contract DeusBridge is Ownable {
 		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
 			token.pool_burn_from(msg.sender, amount);
+			if (tokens[tokenId] == deiAddress) {
+				bridgeReserve -= amount;
+			}
 		} else {
 			token.transferFrom(msg.sender, address(this), amount);
 		}
-		bridgeReserve -= amount;
 
 		if (fee > 0) amount -= amount * fee / scale;
 
@@ -122,7 +126,7 @@ contract DeusBridge is Ownable {
 		});
 		userTxs[user][toChain].push(txId);
 
-		emit Deposit(user, tokenId, amount, toChain, txId);
+		emit Deposit(user, tokenId, amount, toChain, txId, referralCode);
 	}
 
 	function claim(
@@ -160,10 +164,12 @@ contract DeusBridge is Ownable {
 		IERC20 token = IERC20(tokens[tokenId]);
 		if (mintable) {
 			token.pool_mint(user, amount);
+			if (tokens[tokenId] == deiAddress) {
+				bridgeReserve += amount;
+			}
 		} else { 
 			token.transfer(user, amount);
 		}
-		bridgeReserve += amount;
 
 		claimedTxs[fromChain][txId] = true;
 		emit Claim(user, tokenId, amount, fromChain, txId);
@@ -276,7 +282,8 @@ contract DeusBridge is Ownable {
 		uint256 tokenId,
 		uint256 amount,
 		uint256 indexed toChain,
-		uint256 txId
+		uint256 txId,
+		uint256 referralCode
 	);
 
 	event Claim(

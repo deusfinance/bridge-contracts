@@ -21,12 +21,13 @@ module.exports = function (deployer) {
 		mintable = mintable === 'true' || mintable === true || mintable == 1;
 		let minReqSigs = 1
 		let fee = 0
+		let bridgeReserve = "10000000000000000000000000"
 
 		if(!params['muonAddress']){
 			throw {message: "muonAddress required."}
 		}
 
-		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee)
+		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee, bridgeReserve)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}
