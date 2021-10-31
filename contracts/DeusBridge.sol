@@ -29,6 +29,10 @@ interface IERC20 {
 	function pool_mint(address m_address, uint256 m_amount) external;
 }
 
+interface IDEIStablecoin {
+	function global_collateral_ratio() external view returns (uint256);
+}
+
 contract DeusBridge is Ownable {
 	using ECDSA for bytes32;
 
@@ -48,7 +52,9 @@ contract DeusBridge is Ownable {
 	uint256 public minReqSigs;
 	uint256 public fee;
 	uint256 public scale = 1e6;
+	uint256 public bridgeReserve;
 	address public muonContract;
+	address public deiAddress;
 	bool    public mintable;
 	uint8   public ETH_APP_ID = 2;
 	// we assign a unique ID to each chain (default is CHAIN-ID)
@@ -64,12 +70,13 @@ contract DeusBridge is Ownable {
 
 	/* ========== CONSTRUCTOR ========== */
 
-	constructor(address _muon, bool _mintable, uint256 _minReqSigs, uint256 _fee) {
+	constructor(address _muon, bool _mintable, uint256 _minReqSigs, uint256 _fee, uint256 _bridgeReserve) {
 		network = getExecutingChainID();
 		mintable = _mintable;
 		muonContract = _muon;
 		minReqSigs = _minReqSigs;
 		fee = _fee;
+		bridgeReserve = _bridgeReserve;
 	}
 
 
@@ -99,6 +106,7 @@ contract DeusBridge is Ownable {
 		} else {
 			token.transferFrom(msg.sender, address(this), amount);
 		}
+		bridgeReserve -= amount;
 
 		if (fee > 0) amount -= amount * fee / scale;
 
@@ -155,18 +163,19 @@ contract DeusBridge is Ownable {
 		} else { 
 			token.transfer(user, amount);
 		}
+		bridgeReserve += amount;
 
 		claimedTxs[fromChain][txId] = true;
 		emit Claim(user, tokenId, amount, fromChain, txId);
 	}
 
 
-
 	/* ========== VIEWS ========== */
 
-	// TODO: add pool feature to handle buyback and recollateralize on DEI minter pool
+	// This function use pool feature to handle buyback and recollateralize on DEI minter pool
 	function collatDollarBalance(uint256 collat_usd_price) public view returns (uint256) {
-		return 0;
+		uint collateralRatio = IDEIStablecoin(deiAddress).global_collateral_ratio();
+		return bridgeReserve * collateralRatio / 1e6;
 	}
 
 	function pendingTxs(
@@ -214,13 +223,18 @@ contract DeusBridge is Ownable {
 		return id;
 	}
 
+
 	/* ========== RESTRICTED FUNCTIONS ========== */
 
-	function addToken(uint256 tokenId, address tokenAddress) external onlyOwner {
+	function setBridgeReserve(uint _bridgeReserve) external onlyOwner {
+		bridgeReserve = _bridgeReserve;
+	}
+
+	function setToken(uint256 tokenId, address tokenAddress) external onlyOwner {
 		tokens[tokenId] = tokenAddress;
 	}
 
-	function addConfirmationTime(uint256 chainID, uint256 confirmationTime) external onlyOwner {
+	function setConfirmationTime(uint256 chainID, uint256 confirmationTime) external onlyOwner {
 		confirmationTimes[chainID] = confirmationTime;
 	}
 
