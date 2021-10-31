@@ -64,8 +64,8 @@ contract DeusBridge is Ownable {
 	mapping(uint256 => TX)       public txs;
 	mapping(address => mapping(uint256 => uint256[])) public userTxs;
 	mapping(uint256 => mapping(uint256 => bool))      public claimedTxs;
-	// chainId => confirmationTime on sourceChain
-	mapping(uint256 => uint256) 					  public confirmationTimes;
+	// chainId => confirmationBlock on sourceChain
+	mapping(uint256 => uint256) 					  public confirmationBlocks;
 
 
 	/* ========== CONSTRUCTOR ========== */
@@ -144,7 +144,7 @@ contract DeusBridge is Ownable {
 		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
 		require(toChain == network, "Bridge: toChain should equal network");
 		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
-		require(currentBlockNo -  txBlockNo>= confirmationTimes[fromChain], "Bridge: confirmationTime is not finished yet");
+		require(currentBlockNo -  txBlockNo>= confirmationBlocks[fromChain], "Bridge: confirmationBlock is not finished yet");
 
 		{
 			bytes32 hash = keccak256(
@@ -240,8 +240,8 @@ contract DeusBridge is Ownable {
 		tokens[tokenId] = tokenAddress;
 	}
 
-	function setConfirmationTime(uint256 chainID, uint256 confirmationTime) external onlyOwner {
-		confirmationTimes[chainID] = confirmationTime;
+	function setConfirmationBlock(uint256 chainID, uint256 confirmationBlock) external onlyOwner {
+		confirmationBlocks[chainID] = confirmationBlock;
 	}
 
 	function setNetworkID(uint256 _network) external onlyOwner {
