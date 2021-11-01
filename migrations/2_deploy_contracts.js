@@ -27,7 +27,13 @@ module.exports = function (deployer) {
 			throw {message: "muonAddress required."}
 		}
 
-		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee, bridgeReserve)
+		let deiAddress = ''
+		if (params['network'] == 'rinkeby') {
+			deiAddress = "0x43922ea6ef5995e94680000ed9e20b68974cd902" // rinkeby
+		} else if (params['network'] == 'bsctest') {
+			deiAddress = "0x15633ea478d0272516b763c25e8e62a9e43ae28a" // bsctest
+		}
+		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee, bridgeReserve, deiAddress)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}

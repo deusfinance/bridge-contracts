@@ -50,7 +50,6 @@ contract DeusBridge is Ownable {
 	uint256 public lastTxId = 0;
 	uint256 public network;
 	uint256 public minReqSigs;
-	uint256 public fee;
 	uint256 public scale = 1e6;
 	uint256 public bridgeReserve;
 	address public muonContract;
@@ -66,17 +65,23 @@ contract DeusBridge is Ownable {
 	mapping(uint256 => mapping(uint256 => bool))      public claimedTxs;
 	// chainId => confirmationBlock on sourceChain
 	mapping(uint256 => uint256) 					  public confirmationBlocks;
+	// tokenId => tokenFee
+	mapping(uint256 => uint256) 					  public fee;
+	// tokenId => collectedFee
+	mapping(uint256 => uint256) 					  public collectedFee;
+	// tokenId => claimedFee
+	mapping(uint256 => uint256) 					  public claimedFee;
 
 
 	/* ========== CONSTRUCTOR ========== */
 
-	constructor(address _muon, bool _mintable, uint256 _minReqSigs, uint256 _fee, uint256 _bridgeReserve) {
+	constructor(address _muon, bool _mintable, uint256 _minReqSigs, uint256 _bridgeReserve, address _deiAddress) {
 		network = getExecutingChainID();
 		mintable = _mintable;
 		muonContract = _muon;
 		minReqSigs = _minReqSigs;
-		fee = _fee;
 		bridgeReserve = _bridgeReserve;
+		deiAddress = _deiAddress;
 	}
 
 
@@ -112,7 +117,11 @@ contract DeusBridge is Ownable {
 			token.transferFrom(msg.sender, address(this), amount);
 		}
 
-		if (fee > 0) amount -= amount * fee / scale;
+		if (fee[tokenId] > 0) {
+			uint256 feeAmount = amount * fee[tokenId] / scale;
+			amount -= feeAmount;
+			collectedFee[tokenId] += feeAmount;
+		}
 
 		txId = ++lastTxId;
 		txs[txId] = TX({
@@ -240,8 +249,8 @@ contract DeusBridge is Ownable {
 		tokens[tokenId] = tokenAddress;
 	}
 
-	function setConfirmationBlock(uint256 chainID, uint256 confirmationBlock) external onlyOwner {
-		confirmationBlocks[chainID] = confirmationBlock;
+	function setConfirmationBlock(uint256 chainId, uint256 confirmationBlock) external onlyOwner {
+		confirmationBlocks[chainId] = confirmationBlock;
 	}
 
 	function setNetworkID(uint256 _network) external onlyOwner {
@@ -249,8 +258,8 @@ contract DeusBridge is Ownable {
 		delete sideContracts[network];
 	}
 
-	function setFee(uint256 _fee) external onlyOwner {
-		fee = _fee;
+	function setFee(uint256 tokenId, uint256 _fee) external onlyOwner {
+		fee[tokenId] = _fee;
 	}
 
 	function setMinReqSigs(uint256 _minReqSigs) external onlyOwner {
@@ -273,6 +282,13 @@ contract DeusBridge is Ownable {
 
 	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
 		IERC20(_tokenAddr).transfer(_to, _amount);
+	}
+
+	function withdrawFee(uint256 tokenId, address addr) external onlyOwner {
+		require(collectedFee[tokenId] > 0, "Bridge: No fee to collect");
+		IERC20(tokens[tokenId]).pool_mint(addr, collectedFee[tokenId]);
+		claimedFee[tokenId] += collectedFee[tokenId];
+		collectedFee[tokenId] = 0;
 	}
 
 
