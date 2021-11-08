@@ -91,18 +91,48 @@ contract DeusBridge is Ownable {
 		uint256 amount, 
 		uint256 toChain,
 		uint256 tokenId,
-		uint256 referralCode
-	) external returns (uint256) {
-		return depositFor(msg.sender, amount, toChain, tokenId, referralCode);
+	) external returns (uint256 txId) {
+		txId = _deposit(msg.sender, amount, toChain, tokenId);
+		emit Deposit(msg.sender, tokenId, amount, toChain, txId);
 	}
 
 	function depositFor(
 		address user,
-		uint256 amount,
+		uint256 amount, 
+		uint256 toChain,
+		uint256 tokenId,
+	) external returns (uint256 txId) {
+		txId = _deposit(user, amount, toChain, tokenId);
+		emit Deposit(user, tokenId, amount, toChain, txId);
+	}
+
+	function deposit(
+		uint256 amount, 
 		uint256 toChain,
 		uint256 tokenId,
 		uint256 referralCode
-	) public returns (uint256 txId) {
+	) external returns (uint256 txId) {
+		txId = _deposit(msg.sender, amount, toChain, tokenId);
+		emit DepositWithReferralCode(msg.sender, tokenId, amount, toChain, txId, referralCode);
+	}
+
+	function depositFor(
+		address user,
+		uint256 amount, 
+		uint256 toChain,
+		uint256 tokenId,
+		uint256 referralCode
+	) external returns (uint256 txId) {
+		txId = _deposit(user, amount, toChain, tokenId);
+		emit DepositWithReferralCode(user, tokenId, amount, toChain, txId, referralCode);
+	}
+
+	function _deposit(
+		address user,
+		uint256 amount,
+		uint256 toChain,
+		uint256 tokenId,
+	) internal returns (uint256 txId) {
 		require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
 		require(toChain != network, "Bridge: selfDeposit");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
@@ -134,8 +164,6 @@ contract DeusBridge is Ownable {
 			txBlockNo: block.number
 		});
 		userTxs[user][toChain].push(txId);
-
-		emit Deposit(user, tokenId, amount, toChain, txId, referralCode);
 	}
 
 	function claim(
@@ -294,6 +322,14 @@ contract DeusBridge is Ownable {
 
 	/* ========== EVENTS ========== */
 	event Deposit(
+		address indexed user,
+		uint256 tokenId,
+		uint256 amount,
+		uint256 indexed toChain,
+		uint256 txId
+	);
+
+	event DepositWithReferralCode(
 		address indexed user,
 		uint256 tokenId,
 		uint256 amount,
