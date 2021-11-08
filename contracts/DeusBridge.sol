@@ -289,6 +289,10 @@ contract DeusBridge is Ownable {
 	function setFee(uint256 tokenId, uint256 _fee) external onlyOwner {
 		fee[tokenId] = _fee;
 	}
+	
+	function setDeiAddress(address _deiAddress) external onlyOwner {
+		deiAddress = _deiAddress;
+	}
 
 	function setMinReqSigs(uint256 _minReqSigs) external onlyOwner {
 		minReqSigs = _minReqSigs;
