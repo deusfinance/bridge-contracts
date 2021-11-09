@@ -90,7 +90,7 @@ contract DeusBridge is Ownable {
 	function deposit(
 		uint256 amount, 
 		uint256 toChain,
-		uint256 tokenId,
+		uint256 tokenId
 	) external returns (uint256 txId) {
 		txId = _deposit(msg.sender, amount, toChain, tokenId);
 		emit Deposit(msg.sender, tokenId, amount, toChain, txId);
@@ -100,7 +100,7 @@ contract DeusBridge is Ownable {
 		address user,
 		uint256 amount, 
 		uint256 toChain,
-		uint256 tokenId,
+		uint256 tokenId
 	) external returns (uint256 txId) {
 		txId = _deposit(user, amount, toChain, tokenId);
 		emit Deposit(user, tokenId, amount, toChain, txId);
@@ -131,7 +131,7 @@ contract DeusBridge is Ownable {
 		address user,
 		uint256 amount,
 		uint256 toChain,
-		uint256 tokenId,
+		uint256 tokenId
 	) internal returns (uint256 txId) {
 		require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
 		require(toChain != network, "Bridge: selfDeposit");
