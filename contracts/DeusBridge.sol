@@ -21,6 +21,7 @@ pragma solidity ^0.8.9;
 import "./IMuonV02.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/security/Pausable.sol";
 
 interface IERC20 {
 	function transfer(address recipient, uint256 amount) external;
@@ -33,7 +34,7 @@ interface IDEIStablecoin {
 	function global_collateral_ratio() external view returns (uint256);
 }
 
-contract DeusBridge is Ownable {
+contract DeusBridge is Ownable, Pausable {
 	using ECDSA for bytes32;
 
 	/* ========== STATE VARIABLES ========== */
@@ -47,21 +48,23 @@ contract DeusBridge is Ownable {
 		uint256 txBlockNo;
 	}
 
-	uint256 public lastTxId = 0;
-	uint256 public network;
-	uint256 public minReqSigs;
+	uint256 public lastTxId = 0;  // unique id for deposit tx
+	uint256 public network;  // current chain id
+	uint256 public minReqSigs;  // minimum required tss
 	uint256 public scale = 1e6;
-	uint256 public bridgeReserve;
-	address public muonContract;
+	uint256 public bridgeReserve;  // it handles buyback & recollaterlize on dei pools
+	address public muonContract;  // muon signature verifier contract
 	address public deiAddress;
-	bool    public mintable;
-	uint8   public ETH_APP_ID = 2;
+	bool    public mintable;  // use mint functions instead of transfer
+	uint8   public ETH_APP_ID = 2;  // muon's eth app id
 	// we assign a unique ID to each chain (default is CHAIN-ID)
 	mapping (uint256 => address) public sideContracts;
 	// tokenId => tokenContractAddress
 	mapping(uint256 => address)  public tokens;
 	mapping(uint256 => TX)       public txs;
+	// user => (destination chain => user's txs id)
 	mapping(address => mapping(uint256 => uint256[])) public userTxs;
+	// source chain => (tx id => false/true)
 	mapping(uint256 => mapping(uint256 => bool))      public claimedTxs;
 	// chainId => confirmationBlock on sourceChain
 	mapping(uint256 => uint256) 					  public confirmationBlocks;
@@ -132,7 +135,7 @@ contract DeusBridge is Ownable {
 		uint256 amount,
 		uint256 toChain,
 		uint256 tokenId
-	) internal returns (uint256 txId) {
+	) internal whenNotPaused() returns (uint256 txId) {
 		require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
 		require(toChain != network, "Bridge: selfDeposit");
 		require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
@@ -181,7 +184,7 @@ contract DeusBridge is Ownable {
 		require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
 		require(toChain == network, "Bridge: toChain should equal network");
 		require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
-		require(currentBlockNo -  txBlockNo>= confirmationBlocks[fromChain], "Bridge: confirmationBlock is not finished yet");
+		require(currentBlockNo -  txBlockNo >= confirmationBlocks[fromChain], "Bridge: confirmationBlock is not finished yet");
 
 		{
 			bytes32 hash = keccak256(
@@ -307,13 +310,12 @@ contract DeusBridge is Ownable {
 		mintable = _mintable;
 	}
 
-	function emergencyWithdrawETH(uint256 amount, address addr) external onlyOwner {
-		require(addr != address(0));
-		payable(addr).transfer(amount);
+	function pause() external onlyOwner {
+		super._pause();
 	}
 
-	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
-		IERC20(_tokenAddr).transfer(_to, _amount);
+	function unpase() external onlyOwner {
+		super._unpause();
 	}
 
 	function withdrawFee(uint256 tokenId, address addr) external onlyOwner {
@@ -323,6 +325,14 @@ contract DeusBridge is Ownable {
 		collectedFee[tokenId] = 0;
 	}
 
+	function emergencyWithdrawETH(uint256 amount, address addr) external onlyOwner {
+		require(addr != address(0));
+		payable(addr).transfer(amount);
+	}
+
+	function emergencyWithdrawERC20Tokens(address _tokenAddr, address _to, uint _amount) external onlyOwner {
+		IERC20(_tokenAddr).transfer(_to, _amount);
+	}
 
 	/* ========== EVENTS ========== */
 	event Deposit(

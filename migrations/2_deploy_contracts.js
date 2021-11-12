@@ -33,7 +33,7 @@ module.exports = function (deployer) {
 		} else if (params['network'] == 'bsctest') {
 			deiAddress = "0x15633ea478d0272516b763c25e8e62a9e43ae28a" // bsctest
 		}
-		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, fee, bridgeReserve, deiAddress)
+		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, bridgeReserve, deiAddress)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}
