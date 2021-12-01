@@ -188,7 +188,6 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         uint fromChain,
         uint toChain,
         uint tokenId,
-        uint currentBlockNo,
         uint txBlockNo,
         uint txId,
         bytes calldata _reqId,
@@ -312,7 +311,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     }
 
     function setSideContract(uint network_, address address_) external onlyOwner {
-        require (network != network_, 'Bridge: current network');
+        require (network != network_, "Bridge: current network");
         sideContracts[network_] = address_;
     }
 

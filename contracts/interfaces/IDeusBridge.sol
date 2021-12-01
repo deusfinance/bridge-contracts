@@ -61,7 +61,6 @@ interface IDeusBridge {
         uint fromChain,
         uint toChain,
         uint tokenId,
-        uint currentBlockNo,
         uint txBlockNo,
         uint txId,
         bytes calldata _reqId,
