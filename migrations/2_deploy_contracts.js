@@ -20,19 +20,13 @@ module.exports = function (deployer) {
 		let mintable = params['mintable'] || 'true'
 		mintable = mintable === 'true' || mintable === true || mintable == 1;
 		let minReqSigs = 1
-		let fee = 0
-		let bridgeReserve = "10000000000000000000000000"
+		let bridgeReserve = "5000000000000000000000000"
 
 		if(!params['muonAddress']){
 			throw {message: "muonAddress required."}
 		}
 
-		let deiAddress = ''
-		if (params['network'] == 'rinkeby') {
-			deiAddress = "0x43922ea6ef5995e94680000ed9e20b68974cd902" // rinkeby
-		} else if (params['network'] == 'bsctest') {
-			deiAddress = "0x15633ea478d0272516b763c25e8e62a9e43ae28a" // bsctest
-		}
+		let deiAddress = '0xDE12c7959E1a72bbe8a5f7A1dc8f8EeF9Ab011B3'
 		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, bridgeReserve, deiAddress)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
