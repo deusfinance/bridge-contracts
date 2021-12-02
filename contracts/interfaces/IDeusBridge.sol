@@ -61,7 +61,6 @@ interface IDeusBridge {
         uint fromChain,
         uint toChain,
         uint tokenId,
-        uint txBlockNo,
         uint txId,
         bytes calldata _reqId,
         SchnorrSign[] calldata sigs

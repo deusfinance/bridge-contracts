@@ -188,7 +188,6 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         uint fromChain,
         uint toChain,
         uint tokenId,
-        uint txBlockNo,
         uint txId,
         bytes calldata _reqId,
         SchnorrSign[] calldata sigs
@@ -201,7 +200,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
             bytes32 hash = keccak256(
             abi.encodePacked(
                 abi.encodePacked(sideContracts[fromChain], txId, tokenId, amount),
-                abi.encodePacked(fromChain, toChain, user, txBlockNo, ETH_APP_ID)
+                abi.encodePacked(fromChain, toChain, user, ETH_APP_ID)
                 )
             );
 
