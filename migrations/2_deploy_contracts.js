@@ -27,7 +27,8 @@ module.exports = function (deployer) {
 		}
 
 		let deiAddress = '0xDE12c7959E1a72bbe8a5f7A1dc8f8EeF9Ab011B3'
-		let deployedBridge = await deployer.deploy(bridge, params['muonAddress'], mintable, minReqSigs, bridgeReserve, deiAddress)
+		// uint minReqSigs_, uint bridgeReserve_, uint8 ETH_APP_ID_, address muon_, address deiAddress_, bool mintable_
+		let deployedBridge = await deployer.deploy(bridge, minReqSigs, bridgeReserve, "7", params['muonAddress'], deiAddress, mintable)
 		if(params['dea']){
 			let deployedDea = await deployer.deploy(deaToken)
 		}
