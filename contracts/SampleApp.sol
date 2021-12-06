@@ -11,7 +11,7 @@ contract SampleApp {
 
     event Action(uint256 requestId, uint256 timestamp, uint256 price);
     
-    constructor (address _muon) public {
+    constructor (address _muon) {
         muon = _muon;
     }
     
