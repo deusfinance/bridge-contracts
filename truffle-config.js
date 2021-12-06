@@ -86,7 +86,7 @@ module.exports = {
         ),
       network_id: 4,
       gas: 8000000,
-      gasPrice: 60000000000, // 60 gwei
+      gasPrice: 6000000000, // 60 gwei
       confirmations: 2,
       timeoutBlocks: 200,
       skipDryRun: true
@@ -130,7 +130,60 @@ module.exports = {
       timeoutBlocks: 200,
       gas: 5500000,
       skipDryRun: true
-    }
+    },
+
+    mainnet: {
+      provider: () =>
+        new HDWalletProvider(
+          process.env.PK,
+          'https://mainnet.infura.io/v3/' + process.env.INFURA_KEY
+        ),
+      network_id: 1,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      gas: 8000000,
+      gasPrice: 95000000000,
+      skipDryRun: true
+    },
+    polygon: {
+      provider: () =>
+        new HDWalletProvider(
+          process.env.PK,
+          'https://polygon-rpc.com/'
+        ),
+      network_id: 137,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      gas: 8e6,
+      gasPrice: 30e9,
+      skipDryRun: true
+    },
+    fantom: {
+			provider: () =>
+        new HDWalletProvider(
+          process.env.PK,
+          "https://rpc.ftm.tools/"
+        ),
+      network_id: 250,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      gas: 8e6,
+      gasPrice: 300e9,
+      skipDryRun: true
+		},
+		bsc: {
+      provider: () =>
+        new HDWalletProvider(
+          process.env.PK,
+          `https://bsc-dataseed1.binance.org`
+        ),
+      network_id: 56,
+      confirmations: 2,
+      timeoutBlocks: 200,
+      gas: 8e6,
+      gasPrice: 10e9,
+      skipDryRun: true
+    },
 
     // Useful for private networks
     // private: {
@@ -190,6 +243,7 @@ module.exports = {
   api_keys: {
     bscscan: process.env.BSCSCAN_API_KEY,
     etherscan: process.env.ETHERSCAN_API_KEY,
-    //polygonscan: process.env.POLYGONSCAN_API_KEY
+    polygonscan: process.env.POLYGONSCAN_API_KEY,
+    ftmscan: process.env.FANTOM_API_KEY
   }
 }
