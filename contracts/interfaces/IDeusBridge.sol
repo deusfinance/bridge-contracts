@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <=0.9.0;
 
 import "./IMuonV02.sol";
@@ -14,9 +15,9 @@ struct Transaction {
 
 interface IDeusBridge {
 	/* ========== STATE VARIABLES ========== */
-	
+
     function lastTxId() external view returns (uint);
-    function network() external view returns (uint);
+    function chainId() external view returns (uint);
     function minReqSigs() external view returns (uint);
     function scale() external view returns (uint);
     function bridgeReserve() external view returns (uint);
@@ -32,28 +33,15 @@ interface IDeusBridge {
 
 	/* ========== PUBLIC FUNCTIONS ========== */
 	function deposit(
-		uint amount, 
+		uint amount,
 		uint toChain,
 		uint tokenId
 	) external returns (uint txId);
 	function depositFor(
 		address user,
-		uint amount, 
+		uint amount,
 		uint toChain,
 		uint tokenId
-	) external returns (uint txId);
-	function deposit(
-		uint amount, 
-		uint toChain,
-		uint tokenId,
-		uint referralCode
-	) external returns (uint txId);
-	function depositFor(
-		address user,
-		uint amount, 
-		uint toChain,
-		uint tokenId,
-		uint referralCode
 	) external returns (uint txId);
 	function claim(
         address user,
@@ -67,13 +55,13 @@ interface IDeusBridge {
     ) external;
 
 	/* ========== VIEWS ========== */
-	function collatDollarBalance(uint collat_usd_price) external view returns (uint);
-	function pendingTxs(
-		uint fromChain, 
+	function getCollateralBalance(uint collat_usd_price) external view returns (uint);
+	function getPendingTransactions(
+		uint fromChain,
 		uint[] calldata ids
 	) external view returns (bool[] memory unclaimedIds);
-	function getUserTxs(
-		address user, 
+	function getUserTransactions(
+		address user,
 		uint toChain
 	) external view returns (uint[] memory);
 	function getTransaction(uint txId_) external view returns (
@@ -91,16 +79,16 @@ interface IDeusBridge {
 	/* ========== RESTRICTED FUNCTIONS ========== */
 	function setBridgeReserve(uint bridgeReserve_) external;
 	function setToken(uint tokenId, address tokenAddress) external;
-	function setNetworkID(uint network_) external;
+	function setChainId(uint chainId_) external;
 	function setFee(uint tokenId, uint fee_) external;
 	function setDeiAddress(address deiAddress_) external;
 	function setMinReqSigs(uint minReqSigs_) external;
-	function setSideContract(uint network_, address address_) external;
+	function setSideContract(uint chainId_, address address_) external;
 	function setMintable(bool mintable_) external;
 	function setEthAppId(uint8 ethAppId_) external;
 	function setMuonContract(address muonContract_) external;
 	function pause() external;
-	function unpase() external;
+	function unpause() external;
 	function withdrawFee(uint tokenId, address to) external;
 	function emergencyWithdrawETH(address to, uint amount) external;
 	function emergencyWithdrawERC20Tokens(address tokenAddr, address to, uint amount) external;
