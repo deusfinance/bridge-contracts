@@ -1,24 +1,23 @@
 {
-  "name": "yvault",
+  "name": "bridge-contracts",
   "version": "1.0.0",
-  "description": "环境... solc 0.5.15",
+  "description": "DEUS Permissionless ERC20 Bridge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deusfinance/bridge-contracts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/deusfinance/bridge-contracts/issues"
+  },
   "main": "truffle-config.js",
   "scripts": {
     "compile": "truffle compile",
     "build": "truffle build",
-    "deploy": "truffle deploy --network ropsten",
+    "deploy": "truffle deploy --network mainnet",
+    "deploy:ropsten": "truffle deploy --network ropsten",
     "test": "truffle test --network development"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/yfii/yvault.git"
-  },
-  "author": "",
-  "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/yfii/yvault/issues"
-  },
-  "homepage": "https://github.com/yfii/yvault#readme",
   "dependencies": {
     "@openzeppelin/contracts": "^4.1.0",
     "@truffle/hdwallet-provider": "^1.4.0",

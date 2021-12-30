@@ -25,16 +25,22 @@ import "./interfaces/IDeusBridge.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IDEIStablecoin.sol";
 
+/**
+ * @title Permissionless ERC20 Bridge
+ * @author DEUS Finance
+ * @notice Bridge any ERC20 completely permissionlessly
+ * @dev Released under DEUS v2
+ */
 contract DeusBridge is IDeusBridge, Ownable, Pausable {
     using ECDSA for bytes32;
 
     /* ========== STATE VARIABLES ========== */
 
     uint public lastTxId = 0;  // unique id for deposit tx
-    uint public network;  // current chain id
-    uint public minReqSigs;  // minimum required tss
+    uint public chainId;  // current chainId
+    uint public minReqSigs;  // minimum required TSS
     uint public scale = 1e6;
-    uint public bridgeReserve;  // it handles buyback & recollaterlize on dei pools
+    uint public bridgeReserve;  // it handles buyback & recollateralize on dei pools
     address public muonContract;  // muon signature verifier contract
     address public deiAddress;
     uint8   public ETH_APP_ID;  // muon's eth app id
@@ -54,6 +60,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     mapping(uint => uint) public collectedFee;
 
     /* ========== EVENTS ========== */
+
     event Deposit(
         address indexed user,
         uint tokenId,
@@ -71,24 +78,33 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     );
     event Claim(
         address indexed user,
-        uint tokenId, 
-        uint amount, 
-        uint indexed fromChain, 
+        uint tokenId,
+        uint amount,
+        uint indexed fromChain,
         uint txId
     );
     event BridgeReserveSet(uint bridgeReserve, uint _bridgeReserve);
 
     /* ========== CONSTRUCTOR ========== */
 
+    /**
+     * @dev Deploy bridge as DEI bridge or ERC20 bridge
+     * @param minReqSigs_ Minimum required TSS
+     * @param bridgeReserve_ how much DEI can the bridge hold
+     * @param ETH_APP_ID_ App Identifier within Muon
+     * @param muon_ Muon contract for signature validation
+     * @param deiAddress_ DEI Address
+     * @param mintable_ truthy for DEI bridge / false for ERC20 bridge
+     */
     constructor(
-        uint minReqSigs_, 
+        uint minReqSigs_,
         uint bridgeReserve_,
         uint8 ETH_APP_ID_,
-        address muon_, 
+        address muon_,
         address deiAddress_,
         bool mintable_
     ) {
-        network = getExecutingChainID();
+        chainId = getExecutingChainID();
         minReqSigs = minReqSigs_;
         bridgeReserve = bridgeReserve_;
         ETH_APP_ID = ETH_APP_ID_;
@@ -99,8 +115,16 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
 
     /* ========== PUBLIC FUNCTIONS ========== */
 
+    /**
+     * @notice Deposit an amount of ERC20 tokens
+     * @dev This function will be replaced by a regular `transfer` in the future
+     * @param amount The amount of tokens to deposit
+     * @param toChain The chainId of the destination chain
+     * @param tokenId Identifier that's shared across chains for this token
+     * @return txId Identifier used by Muon to access state when bridging
+     */
     function deposit(
-        uint amount, 
+        uint amount,
         uint toChain,
         uint tokenId
     ) external returns (uint txId) {
@@ -108,9 +132,13 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         emit Deposit(msg.sender, tokenId, amount, toChain, txId);
     }
 
+    /**
+     * @notice Deposit an amount of ERC20 tokens via a proxy
+     * @dev Same as `deposit` but for proxies
+     */
     function depositFor(
         address user,
-        uint amount, 
+        uint amount,
         uint toChain,
         uint tokenId
     ) external returns (uint txId) {
@@ -118,8 +146,8 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         emit Deposit(user, tokenId, amount, toChain, txId);
     }
 
-    function deposit(
-        uint amount, 
+    function depositWithReferralCode(
+        uint amount,
         uint toChain,
         uint tokenId,
         uint referralCode
@@ -128,9 +156,9 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         emit DepositWithReferralCode(msg.sender, tokenId, amount, toChain, txId, referralCode);
     }
 
-    function depositFor(
+    function depositForWithReferralCode(
         address user,
-        uint amount, 
+        uint amount,
         uint toChain,
         uint tokenId,
         uint referralCode
@@ -139,19 +167,22 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         emit DepositWithReferralCode(user, tokenId, amount, toChain, txId, referralCode);
     }
 
+    /**
+     * @dev Interally called by `deposit` and/or `depositFor`
+     */
     function _deposit(
         address user,
         uint amount,
         uint toChain,
         uint tokenId
-    ) 
-        internal 
-        whenNotPaused() 
-        returns (uint txId) 
+    )
+        internal
+        whenNotPaused()
+        returns (uint txId)
     {
-        require(sideContracts[toChain] != address(0), "Bridge: unknown toChain");
-        require(toChain != network, "Bridge: selfDeposit");
-        require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
+        require(sideContracts[toChain] != address(0), "[Bridge]: toChain is not a recognized source");
+        require(toChain != chainId, "[Bridge]: toChain cannot be current chainId");
+        require(tokens[tokenId] != address(0), "[Bridge]: unknown tokenId");
 
         IERC20 token = IERC20(tokens[tokenId]);
         if (mintable) {
@@ -173,7 +204,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         txs[txId] = Transaction({
             txId: txId,
             tokenId: tokenId,
-            fromChain: network,
+            fromChain: chainId,
             toChain: toChain,
             amount: amount,
             user: user,
@@ -192,9 +223,9 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         bytes calldata _reqId,
         SchnorrSign[] calldata sigs
     ) external {
-        require(sideContracts[fromChain] != address(0), 'Bridge: source contract not exist');
-        require(toChain == network, "Bridge: toChain should equal network");
-        require(sigs.length >= minReqSigs, "Bridge: insufficient number of signatures");
+        require(sideContracts[fromChain] != address(0), '[Bridge]: fromChain is not a recognized source');
+        require(toChain == chainId, "[Bridge]: toChain should be current chainId");
+        require(sigs.length >= minReqSigs, "[Bridge]: insufficient number of signatures");
 
         {
             bytes32 hash = keccak256(
@@ -205,11 +236,11 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
             );
 
             IMuonV02 muon = IMuonV02(muonContract);
-            require(muon.verify(_reqId, uint(hash), sigs), "Bridge: not verified");
+            require(muon.verify(_reqId, uint(hash), sigs), "[Bridge]: unable to verify signatures");
         }
 
-        require(!claimedTxs[fromChain][txId], "Bridge: already claimed");
-        require(tokens[tokenId] != address(0), "Bridge: unknown tokenId");
+        require(!claimedTxs[fromChain][txId], "[Bridge]: tokens are already claimed");
+        require(tokens[tokenId] != address(0), "[Bridge]: unknown tokenId");
 
         IERC20 token = IERC20(tokens[tokenId]);
         if (mintable) {
@@ -217,7 +248,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
             if (tokens[tokenId] == deiAddress) {
                 bridgeReserve += amount;
             }
-        } else { 
+        } else {
             token.transfer(user, amount);
         }
 
@@ -235,7 +266,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     }
 
     function pendingTxs(
-        uint fromChain, 
+        uint fromChain,
         uint[] calldata ids
     ) public view returns (bool[] memory unclaimedIds) {
         unclaimedIds = new bool[](ids.length);
@@ -245,7 +276,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     }
 
     function getUserTxs(
-        address user, 
+        address user,
         uint toChain
     ) public view returns (uint[] memory) {
         return userTxs[user][toChain];
@@ -292,15 +323,15 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         tokens[tokenId] = tokenAddress;
     }
 
-    function setNetworkID(uint network_) external onlyOwner {
-        network = network_;
-        delete sideContracts[network];
+    function setChainId(uint chainId_) external onlyOwner {
+        chainId = chainId_;
+        delete sideContracts[chainId_];
     }
 
     function setFee(uint tokenId, uint fee_) external onlyOwner {
         fee[tokenId] = fee_;
     }
-    
+
     function setDeiAddress(address deiAddress_) external onlyOwner {
         deiAddress = deiAddress_;
     }
@@ -309,9 +340,9 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         minReqSigs = minReqSigs_;
     }
 
-    function setSideContract(uint network_, address address_) external onlyOwner {
-        require (network != network_, "Bridge: current network");
-        sideContracts[network_] = address_;
+    function setSideContract(uint chainId_, address address_) external onlyOwner {
+        require (chainId_ != chainId, "[Bridge]: sideContract chainId cannot be current chainId");
+        sideContracts[chainId_] = address_;
     }
 
     function setMintable(bool mintable_) external onlyOwner {
@@ -328,10 +359,10 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
 
     function pause() external onlyOwner { super._pause(); }
 
-    function unpase() external onlyOwner { super._unpause(); }
+    function unpause() external onlyOwner { super._unpause(); }
 
     function withdrawFee(uint tokenId, address to) external onlyOwner {
-        require(collectedFee[tokenId] > 0, "Bridge: No fee to collect");
+        require(collectedFee[tokenId] > 0, "[Bridge]: there is no fee to collect");
 
         IERC20(tokens[tokenId]).pool_mint(to, collectedFee[tokenId]);
         collectedFee[tokenId] = 0;
