@@ -68,14 +68,6 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         uint indexed toChain,
         uint txId
     );
-    event DepositWithReferralCode(
-        address indexed user,
-        uint tokenId,
-        uint amount,
-        uint indexed toChain,
-        uint txId,
-        uint referralCode
-    );
     event Claim(
         address indexed user,
         uint tokenId,
@@ -144,27 +136,6 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     ) external returns (uint txId) {
         txId = _deposit(user, amount, toChain, tokenId);
         emit Deposit(user, tokenId, amount, toChain, txId);
-    }
-
-    function depositWithReferralCode(
-        uint amount,
-        uint toChain,
-        uint tokenId,
-        uint referralCode
-    ) external returns (uint txId) {
-        txId = _deposit(msg.sender, amount, toChain, tokenId);
-        emit DepositWithReferralCode(msg.sender, tokenId, amount, toChain, txId, referralCode);
-    }
-
-    function depositForWithReferralCode(
-        address user,
-        uint amount,
-        uint toChain,
-        uint tokenId,
-        uint referralCode
-    ) external returns (uint txId) {
-        txId = _deposit(user, amount, toChain, tokenId);
-        emit DepositWithReferralCode(user, tokenId, amount, toChain, txId, referralCode);
     }
 
     /**
@@ -260,12 +231,12 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
     /* ========== VIEWS ========== */
 
     // This function use pool feature to handle buyback and recollateralize on DEI minter pool
-    function collatDollarBalance(uint collat_usd_price) public view returns (uint) {
+    function getCollateralBalance(uint collat_usd_price) public view returns (uint) {
         uint collateralRatio = IDEIStablecoin(deiAddress).global_collateral_ratio();
         return bridgeReserve * collateralRatio / 1e6;
     }
 
-    function pendingTxs(
+    function getPendingTransactions(
         uint fromChain,
         uint[] calldata ids
     ) public view returns (bool[] memory unclaimedIds) {
@@ -275,7 +246,7 @@ contract DeusBridge is IDeusBridge, Ownable, Pausable {
         }
     }
 
-    function getUserTxs(
+    function getUserTransactions(
         address user,
         uint toChain
     ) public view returns (uint[] memory) {

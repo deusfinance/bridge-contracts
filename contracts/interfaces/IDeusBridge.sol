@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <=0.9.0;
 
 import "./IMuonV02.sol";
@@ -42,19 +43,6 @@ interface IDeusBridge {
 		uint toChain,
 		uint tokenId
 	) external returns (uint txId);
-	function deposit(
-		uint amount,
-		uint toChain,
-		uint tokenId,
-		uint referralCode
-	) external returns (uint txId);
-	function depositFor(
-		address user,
-		uint amount,
-		uint toChain,
-		uint tokenId,
-		uint referralCode
-	) external returns (uint txId);
 	function claim(
         address user,
         uint amount,
@@ -67,12 +55,12 @@ interface IDeusBridge {
     ) external;
 
 	/* ========== VIEWS ========== */
-	function collatDollarBalance(uint collat_usd_price) external view returns (uint);
-	function pendingTxs(
+	function getCollateralBalance(uint collat_usd_price) external view returns (uint);
+	function getPendingTransactions(
 		uint fromChain,
 		uint[] calldata ids
 	) external view returns (bool[] memory unclaimedIds);
-	function getUserTxs(
+	function getUserTransactions(
 		address user,
 		uint toChain
 	) external view returns (uint[] memory);
