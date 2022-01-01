@@ -50,4 +50,6 @@ Thumbs.db
 .env
 
 build/*
+artifacts
+cache
 
