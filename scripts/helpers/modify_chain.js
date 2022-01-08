@@ -1,6 +1,6 @@
 const hre = require("hardhat");
 
-async function setBalance(account, balance = "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff") {
+async function setBalance(account, balance = '0x' + 1e24.toString(16)) {
     await hre.network.provider.request({
         method: "hardhat_setBalance",
         params: [

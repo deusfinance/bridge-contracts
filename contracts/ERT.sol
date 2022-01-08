@@ -600,7 +600,15 @@ contract ERT is ERC20 {
         _mint(account, amount);
     }
 
+    function pool_mint(address account, uint256 amount) public {
+        _mint(account, amount);
+    }
+
     function pool_burn_from(address b_address, uint256 b_amount) public {
         super._burn(b_address, b_amount);
+    }
+
+    function global_collateral_ratio() external view returns (uint256) {
+        return 0;
     }
 }
