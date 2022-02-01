@@ -1,6 +1,6 @@
 # deus bridge smart contracts
 
-deus bridges secured by [Muon network](https://muon.net) to bridge $DEI and $DEUS
+Deus bridges secured by [Muon network](https://muon.net) to bridge $DEI and $DEUS
 
 Chain | Address
 -|-
