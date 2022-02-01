@@ -2,6 +2,14 @@
 
 deus bridges secured by [Muon network](https://muon.net) to bridge $DEI and $DEUS
 
+Chain | Address
+-|-
+Mainnet | 0x7aB4C5738e39E613186AFFD4c50DbfDFF6c22065
+Polygon | 0x7aB4C5738e39E613186AFFD4c50DbfDFF6c22065
+Fantom | 0x7aB4C5738e39E613186AFFD4c50DbfDFF6c22065
+Andromeda | 0x7Be7EC9B8438Fbf91e3e00B02fd46cA53F9cC144
+Arbitrum | 0x9A5d6D10F59fEe47694A154B472De5aC113C6C08
+
 ### Pre Requisites
 
 You will need the following software on your machine:
